@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+.pytest_cache/
+alembic/versions/*
+!alembic/versions/.gitkeep
+DEVELOPMENT_STEPS.md
+ERC8004_INTEGRATION_GUIDE.md
