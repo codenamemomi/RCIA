@@ -180,8 +180,8 @@ MARKER="# -- RCIA location block --"
 # Auto-detect the Nginx config file containing this domain
 NGINX_CONF=""
 if [ -d "$NGINX_SITES" ]; then
-    # Look for the file that contains api.konasalti.com
-    NGINX_CONF=$(grep -rl "api.konasalti.com" "$NGINX_SITES" 2>/dev/null | head -1)
+    # Look for the file that contains the domain or any related keyword
+    NGINX_CONF=$(grep -rl "api.konasalti.com\|konasalti" "$NGINX_SITES" 2>/dev/null | grep -v "/default$" | head -1)
 fi
 
 if ! command -v nginx >/dev/null 2>&1; then
