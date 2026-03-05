@@ -23,7 +23,7 @@ class IntentSigner:
         return {
             "name": "RCIA-Trust-Layer",
             "version": "1",
-            "chainId": 1, # Should be configurable in production
+            "chainId": settings.BLOCKCHAIN_CHAIN_ID,
             "verifyingContract": target_addr
         }
 

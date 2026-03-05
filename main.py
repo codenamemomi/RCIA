@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     trust = TrustService()
     md = MarketDataService()
     rs = RiskService()
-    sm = CapitalStateMachine()
+    sm = CapitalStateMachine(trust)
     ys = YieldService(trust)
     hs = HedgeService(trust)
     ts = TradingService(md, rs, trust, sm, ys, hs)
@@ -51,7 +51,7 @@ app = FastAPI(
 if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_origins=["*"], # Allow all for demo/hackathon ease
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

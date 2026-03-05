@@ -38,12 +38,12 @@ class Settings(BaseSettings):
     # Refresh Token
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    # State Machine Thresholds
-    SM_DRAWDOWN_THRESHOLD: float = 0.05
-    SM_VOLATILITY_HIGH: float = 0.15
-    SM_VOLATILITY_MEDIUM: float = 0.10
+    # State Machine Thresholds (Sharpe-Optimized)
+    SM_DRAWDOWN_THRESHOLD: float = 0.03
+    SM_VOLATILITY_HIGH: float = 0.12
+    SM_VOLATILITY_MEDIUM: float = 0.08
     SM_MOMENTUM_GROWTH: float = 0.02
-    SM_VOLATILITY_LOW: float = 0.08
+    SM_VOLATILITY_LOW: float = 0.05
     
     # Market Data
     DEFAULT_EXCHANGE: str = "binance"
@@ -55,10 +55,10 @@ class Settings(BaseSettings):
     MA_FAST_PERIOD: int = 7
     MA_SLOW_PERIOD: int = 25
     
-    # Risk Management
-    RISK_MAX_DRAWDOWN: float = 0.10
-    RISK_DAILY_LOSS_LIMIT: float = 0.02
-    RISK_MAX_EXPOSURE: float = 0.80
+    # Risk Management (Conservative)
+    RISK_MAX_DRAWDOWN: float = 0.08
+    RISK_DAILY_LOSS_LIMIT: float = 0.015
+    RISK_MAX_EXPOSURE: float = 0.60
     
     # Phase 3: Specialized Modules
     YIELD_TARGET_APY: float = 0.05
@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # Phase 4: Blockchain & Trust Layer (ERC-8004)
     WEB3_RPC_URL: str = os.getenv("WEB3_RPC_URL", "http://localhost:8545")
     AGENT_PRIVATE_KEY: str = os.getenv("AGENT_PRIVATE_KEY", "0x9c73ddee1b22c1e0a2d90f652b43dddcc9d80600402c7a1719982c2cc2c693b7")
+    AGENT_NAME: str = os.getenv("AGENT_NAME", "RCIA")
+    AGENT_OWNER_ADDRESS: str = os.getenv("AGENT_OWNER_ADDRESS", "0x685655099852fDe97D59A7f93E62b069d1a3c613")
+    BLOCKCHAIN_NETWORK_NAME: str = os.getenv("BLOCKCHAIN_NETWORK_NAME", "Base Sepolia")
+    BLOCKCHAIN_CHAIN_ID: int = int(os.getenv("BLOCKCHAIN_CHAIN_ID", "84532"))
     SIMULATE_ON_CHAIN: bool = os.getenv("SIMULATE_ON_CHAIN", "True").lower() == "true"
     ERC8004_IDENTITY_REGISTRY: str = os.getenv("ERC8004_IDENTITY_REGISTRY", "0x0000000000000000000000000000000000000001")
     ERC8004_VALIDATION_REGISTRY: str = os.getenv("ERC8004_VALIDATION_REGISTRY", "0x0000000000000000000000000000000000000002")

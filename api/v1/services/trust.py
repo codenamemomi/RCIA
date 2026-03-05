@@ -36,6 +36,7 @@ class TrustService:
             abi=self.reputation_abi
         )
         
+        self.history = []
         logger.info(f"TrustService initialized (Agent ID: {self.agent_id})")
 
     def generate_artifact_hash(self, context: dict) -> str:
@@ -81,6 +82,10 @@ class TrustService:
         """
         Generates, signs, and submits a validation artifact to the on-chain Registry.
         """
+        if "timestamp" not in context:
+            from datetime import datetime
+            context["timestamp"] = datetime.now().isoformat() + "Z"
+            
         artifact_hash = self.generate_artifact_hash(context)
         signature = self.signer.sign_validation_artifact(self.agent_id, artifact_hash)
         
@@ -90,13 +95,17 @@ class TrustService:
             import hashlib
             tx_hash = "0x" + hashlib.sha256(f"MOCK_VALIDATION_{artifact_hash}".encode()).hexdigest()
             logger.info(f"[SIMULATED] Validation Emitted: {tx_hash}")
-            return {
+            result = {
                 "event": event_type,
                 "tx_hash": tx_hash,
                 "artifact_hash": artifact_hash,
                 "signature": signature,
-                "on_chain_status": "simulated"
+                "on_chain_status": "simulated",
+                "timestamp": context.get("timestamp", "now"),
+                "to_state": context.get("to_state")
             }
+            self.history.append(result)
+            return result
 
         account = self.signer.account
         nonce = self.w3.eth.get_transaction_count(account.address)
@@ -167,16 +176,16 @@ class TrustService:
         """
         logger.info(f"Reporting outcome for {event_id}: ROI={roi}, Success={success}")
         
-        timestamp = int(asyncio.get_event_loop().time()) # Simplified timestamp
+        from datetime import datetime
+        timestamp = datetime.now().isoformat() + "Z"
         outcome_signature = self.signer.sign_trade_outcome(
-            self.agent_id, event_id, roi, success, timestamp
+            self.agent_id, event_id, roi, success, int(asyncio.get_event_loop().time())
         )
         
         # We reuse the validation artifact pattern for outcomes as well
-        # In a more specialized implementation, this might call a specific contract method
         context = {
             "event_id": event_id,
-            "roi": roi,
+            "roi": f"{roi*100:.2f}%",
             "success": success,
             "timestamp": timestamp
         }
@@ -186,6 +195,6 @@ class TrustService:
     async def get_reputation(self):
         """Fetches the agent's reputation score from the Registry"""
         if settings.SIMULATE_ON_CHAIN:
-            return 85 # Mock score for demo
+            return 0 # Start at 0 for live mode demo
         score = self.reputation_contract.functions.getReputationScore(self.agent_id).call()
         return score

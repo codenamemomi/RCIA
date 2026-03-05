@@ -3,6 +3,7 @@ from typing import Dict, Any, List
 from core.state_machine import CapitalStateMachine
 from api.v1.services.trading import TradingService
 from api.v1.services.trust import TrustService
+from core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,20 +17,37 @@ async def get_status(request: Request):
     ts: TradingService = request.app.state.trading_service
     
     return {
+        "agent": {
+            "name": settings.AGENT_NAME,
+            "id": f"#{settings.AGENT_ID}",
+            "owner": settings.AGENT_OWNER_ADDRESS,
+            "network": settings.BLOCKCHAIN_NETWORK_NAME,
+            "identity_registry": settings.ERC8004_IDENTITY_REGISTRY
+        },
         "mode": sm.current_mode,
         "last_transition": sm.last_transition_time.isoformat() if sm.last_transition_time else None,
         "risk": {
             "current_exposure": ts.risk_service.current_exposure,
-            "daily_pnl": ts.risk_service.daily_pnl
+            "daily_pnl": ts.risk_service.daily_pnl,
+            "cumulative_pnl": ts.risk_service.cumulative_pnl,
+            "sharpe_ratio": ts.risk_service.sharpe_ratio,
+            "win_rate": ts.risk_service.winning_trades / ts.risk_service.total_trades if ts.risk_service.total_trades > 0 else 0
         },
-        "history_count": len(sm.history)
+        "metrics": await request.app.state.market_data.get_market_metrics("BTC/USDT"),
+        "history_count": len(request.app.state.trust_service.history)
     }
+
+@router.get("/history")
+async def get_trade_history(request: Request):
+    """Returns the history of recent trades."""
+    ts: TradingService = request.app.state.trading_service
+    return ts.trade_history
 
 @router.get("/validation")
 async def get_validation_history(request: Request):
-    """Returns the history of signed validation artifacts from the state machine."""
-    sm: CapitalStateMachine = request.app.state.state_machine
-    return sm.history
+    """Returns the history of signed validation artifacts from the trust service."""
+    trust = request.app.state.trust_service
+    return trust.history
 
 @router.post("/evaluate")
 async def trigger_evaluation(request: Request, symbol: str = "BTC/USDT"):

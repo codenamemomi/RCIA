@@ -1,0 +1,25 @@
+# What is RCIA? (The Layman's Explanation)
+
+RCIA stands for "Research & Compliance Infrastructure for Agents." In simple terms, it's a "smart investor" bot that doesn't just trade crypto—it proves that its decisions are safe and follow a specific set of rules.
+
+Here is exactly what it does:
+
+1. It Has "Moods" (Modes) Based on the Market:
+   - When the market is booming (high momentum): It goes into GROWTH mode to make profits.
+   - When the market is sideways: It goes into YIELD mode, parking money in safe "savings accounts" (yield pools) to earn interest.
+   - When the market gets shaky: It goes into HEDGE mode, taking out "insurance" (trading short) to protect its downside.
+   - When there's a crash: It hits the emergency brake and goes into DEFENSIVE mode, selling everything to keep your money safe.
+
+2. It's Obsessed with Safety (Risk Management):
+   Instead of just gambling, the agent constantly measures how "jumpy" (volatile) the market is. If things are too risky, it automatically reduces the amount of money it trades. Its goal isn't just to make the most money, but to make the "safest" money possible (a high Sharpe Ratio).
+
+3. It Leaves a "Paper Trail" on the Blockchain (ERC-8004):
+   This is the most unique part. Every time the agent makes a move—like switching a mode or placing a trade—it creates a digital "receipt" called a Validation Artifact. 
+   - It signs this receipt with its private key.
+   - It sends a record of this to a public blockchain.
+   - This means anyone can verify that the agent actually followed its own rules and didn't just get lucky or cheat.
+
+4. It Has a "Credit Score" (Reputation):
+   Every time the agent reports whether a trade was a success or a failure, its on-chain Reputation Score is updated. If the agent makes smart, safe moves, its score goes up. If it Breaks rules or performs poorly, its score goes down. This makes the agent "trustworthy" for investors.
+
+In short: RCIA is an autonomous fund manager that is transparent, safe, and verifiable.
