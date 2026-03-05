@@ -104,7 +104,7 @@ if [ -n "$DB_SYNC_URL" ]; then
     ok "alembic.ini updated with DATABASE_SYNC_URL."
 fi
 
-python3 -m alembic upgrade head && ok "Database migrations applied." || warn "Migrations failed or no migrations found. Check your DATABASE_URL in .env."
+PYTHONPATH=. ./venv/bin/python3 -m alembic upgrade head && ok "Database migrations applied." || warn "Migrations failed or no migrations found. Check your DATABASE_URL in .env."
 
 # ==============================================================================
 # STEP 6 - Verify the installation
@@ -167,16 +167,22 @@ fi
 # ==============================================================================
 step "Configuring Nginx at /rcia..."
 
-NGINX_CONF="/etc/nginx/sites-available/api.konasalti.com"
-NGINX_SNIPPET="${WORKING_DIR}/nginx/rcia.conf"
+NGINX_SITES="/etc/nginx/sites-available"
 MARKER="# -- RCIA location block --"
+
+# Auto-detect the Nginx config file containing this domain
+NGINX_CONF=""
+if [ -d "$NGINX_SITES" ]; then
+    # Look for the file that contains api.konasalti.com
+    NGINX_CONF=$(grep -rl "api.konasalti.com" "$NGINX_SITES" 2>/dev/null | head -1)
+fi
 
 if ! command -v nginx >/dev/null 2>&1; then
     warn "Nginx not installed. Skipping."
     echo -e "  Add the contents of ${BOLD}nginx/rcia.conf${NC} to your Nginx server block manually."
 
-elif [ ! -f "$NGINX_CONF" ]; then
-    warn "Nginx config not found at ${NGINX_CONF}. Skipping."
+elif [ -z "$NGINX_CONF" ] || [ ! -f "$NGINX_CONF" ]; then
+    warn "Could not find Nginx config for api.konasalti.com in ${NGINX_SITES}."
     echo -e "  Add the contents of ${BOLD}nginx/rcia.conf${NC} to your server's Nginx config manually."
 
 elif grep -q "$MARKER" "$NGINX_CONF"; then
