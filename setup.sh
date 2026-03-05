@@ -104,7 +104,14 @@ if [ -n "$DB_SYNC_URL" ]; then
     ok "alembic.ini updated with DATABASE_SYNC_URL."
 fi
 
-PYTHONPATH=. ./venv/bin/python3 -m alembic upgrade head && ok "Database migrations applied." || warn "Migrations failed or no migrations found. Check your DATABASE_URL in .env."
+# Skip if creds are still the default placeholder
+if echo "$DB_SYNC_URL" | grep -qE "user:password|your-db-password"; then
+    warn "DATABASE_SYNC_URL still has placeholder credentials. Skipping migrations."
+    echo -e "  Update ${BOLD}.env${NC} with your real PostgreSQL credentials, then run:"
+    echo -e "    ${BOLD}PYTHONPATH=. ./venv/bin/python3 -m alembic upgrade head${NC}"
+else
+    PYTHONPATH=. ./venv/bin/python3 -m alembic upgrade head && ok "Database migrations applied." || warn "Migrations failed. Check your DATABASE_URL in .env."
+fi
 
 # ==============================================================================
 # STEP 6 - Verify the installation
@@ -189,6 +196,12 @@ elif grep -q "$MARKER" "$NGINX_CONF"; then
     warn "RCIA Nginx block already present in ${NGINX_CONF}. Skipping."
 
 else
+    # Path to the nginx snippet included with this repo
+    NGINX_SNIPPET="${WORKING_DIR}/nginx/rcia.conf"
+
+    if [ ! -f "$NGINX_SNIPPET" ]; then
+        warn "nginx/rcia.conf not found in repo. Skipping auto-inject."
+    else
     # Build the injected block with the real port
     INJECT_BLOCK=$(sed "s/RCIA_PORT/${RCIA_PORT}/g" "$NGINX_SNIPPET")
 
@@ -207,6 +220,7 @@ else
         echo -e "  Add the block from ${BOLD}nginx/rcia.conf${NC} to ${BOLD}${NGINX_CONF}${NC} manually."
     fi
     rm -f "$TEMP_CONF"
+    fi  # end nginx/rcia.conf exists check
 fi
 # ==============================================================================
 echo ""
