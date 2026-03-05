@@ -44,7 +44,8 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     debug=settings.DEBUG,
-    lifespan=lifespan
+    lifespan=lifespan,
+    root_path="/rcia"
 )
 
 # CORS
