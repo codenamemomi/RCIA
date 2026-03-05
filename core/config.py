@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 import os
 from dotenv import load_dotenv
@@ -38,7 +38,39 @@ class Settings(BaseSettings):
     # Refresh Token
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    class Config:
-        env_file = ".env"
+    # State Machine Thresholds
+    SM_DRAWDOWN_THRESHOLD: float = 0.05
+    SM_VOLATILITY_HIGH: float = 0.15
+    SM_VOLATILITY_MEDIUM: float = 0.10
+    SM_MOMENTUM_GROWTH: float = 0.02
+    SM_VOLATILITY_LOW: float = 0.08
+    
+    # Market Data
+    DEFAULT_EXCHANGE: str = "binance"
+    CCXT_RETRY_ATTEMPTS: int = 3
+    MOCK_MARKET_DATA: bool = os.getenv("MOCK_MARKET_DATA", "True").lower() == "true"
+    
+    # Trading Parameters
+    MA_FAST_PERIOD: int = 7
+    MA_SLOW_PERIOD: int = 25
+    
+    # Risk Management
+    RISK_MAX_DRAWDOWN: float = 0.10
+    RISK_DAILY_LOSS_LIMIT: float = 0.02
+    RISK_MAX_EXPOSURE: float = 0.80
+    
+    # Phase 3: Specialized Modules
+    YIELD_TARGET_APY: float = 0.05
+    HEDGE_RATIO: float = 0.5
+    
+    # Phase 4: Blockchain & Trust Layer (ERC-8004)
+    WEB3_RPC_URL: str = os.getenv("WEB3_RPC_URL", "http://localhost:8545")
+    AGENT_PRIVATE_KEY: str = os.getenv("AGENT_PRIVATE_KEY", "0x9c73ddee1b22c1e0a2d90f652b43dddcc9d80600402c7a1719982c2cc2c693b7")
+    ERC8004_IDENTITY_REGISTRY: str = os.getenv("ERC8004_IDENTITY_REGISTRY", "0x0000000000000000000000000000000000000001")
+    ERC8004_VALIDATION_REGISTRY: str = os.getenv("ERC8004_VALIDATION_REGISTRY", "0x0000000000000000000000000000000000000002")
+    ERC8004_REPUTATION_REGISTRY: str = os.getenv("ERC8004_REPUTATION_REGISTRY", "0x0000000000000000000000000000000000000003")
+    AGENT_ID: int = int(os.getenv("AGENT_ID", "1"))
+    
+    model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()

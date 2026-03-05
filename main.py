@@ -4,25 +4,41 @@ from contextlib import asynccontextmanager
 
 from core.config import settings
 from api.db.session import async_engine
-# Placeholder for models and routes
-# from api.v1.models.base import Base
-# from api.v1.routes import api_version_one
+from api.v1.services.market_data import MarketDataService
+from api.v1.services.risk import RiskService
+from api.v1.services.trading import TradingService
+from api.v1.services.trust import TrustService
+from api.v1.services.yield_optimization import YieldService
+from api.v1.services.hedge import HedgeService
+from core.state_machine import CapitalStateMachine
+from api.v1.routes import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup: Initialize Singleton Services
     print("Starting up RCIA API...")
     
-    # Create tables (for development only - remove in production)
-    if settings.DEBUG:
-        # async with async_engine.begin() as conn:
-        #     await conn.run_sync(Base.metadata.create_all)
-        pass
+    trust = TrustService()
+    md = MarketDataService()
+    rs = RiskService()
+    sm = CapitalStateMachine()
+    ys = YieldService(trust)
+    hs = HedgeService(trust)
+    ts = TradingService(md, rs, trust, sm, ys, hs)
+    
+    app.state.trust_service = trust
+    app.state.market_data = md
+    app.state.risk_service = rs
+    app.state.trading_service = ts
+    app.state.state_machine = sm
+    app.state.yield_service = ys
+    app.state.hedge_service = hs
     
     yield
     
     # Shutdown
     print("Shutting down RCIA API...")
+    await md.close()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -41,8 +57,8 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-# Include API router (Placeholder)
-# app.include_router(api_version_one)
+# Include API router
+app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
