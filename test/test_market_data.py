@@ -11,6 +11,7 @@ async def test_get_market_metrics_calculation():
     ]
     
     with patch("ccxt.async_support.binance") as mock_binance, \
+         patch("api.v1.services.market_data.MarketDataService._get_cryptocompare_metrics", side_effect=Exception("Aggregator Fallback")), \
          patch("api.v1.services.market_data.settings.MOCK_MARKET_DATA", False):
         mock_instance = mock_binance.return_value
         mock_instance.fetch_ohlcv = AsyncMock(return_value=mock_ohlcv)
@@ -39,6 +40,7 @@ async def test_drawdown_calculation():
     ]
     
     with patch("ccxt.async_support.binance") as mock_binance, \
+         patch("api.v1.services.market_data.MarketDataService._get_cryptocompare_metrics", side_effect=Exception("Aggregator Fallback")), \
          patch("api.v1.services.market_data.settings.MOCK_MARKET_DATA", False):
         mock_instance = mock_binance.return_value
         mock_instance.fetch_ohlcv = AsyncMock(return_value=mock_ohlcv)

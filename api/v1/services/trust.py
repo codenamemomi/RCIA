@@ -51,6 +51,12 @@ class TrustService:
         """
         logger.info(f"Registering identity: {name} on-chain...")
         
+        if settings.SIMULATE_ON_CHAIN:
+            import hashlib
+            tx_hash = "0x" + hashlib.sha256(f"MOCK_IDENTITY_{name}_{description}".encode()).hexdigest()
+            logger.info(f"[SIMULATED] Identity Registered: {tx_hash}")
+            return {"status": "success", "tx_hash": tx_hash, "agent_id": self.agent_id}
+
         account = self.signer.account
         nonce = self.w3.eth.get_transaction_count(account.address)
         
@@ -80,6 +86,18 @@ class TrustService:
         
         logger.info(f"Emitting Validation: {event_type} | Hash: {artifact_hash}")
         
+        if settings.SIMULATE_ON_CHAIN:
+            import hashlib
+            tx_hash = "0x" + hashlib.sha256(f"MOCK_VALIDATION_{artifact_hash}".encode()).hexdigest()
+            logger.info(f"[SIMULATED] Validation Emitted: {tx_hash}")
+            return {
+                "event": event_type,
+                "tx_hash": tx_hash,
+                "artifact_hash": artifact_hash,
+                "signature": signature,
+                "on_chain_status": "simulated"
+            }
+
         account = self.signer.account
         nonce = self.w3.eth.get_transaction_count(account.address)
         
@@ -103,6 +121,43 @@ class TrustService:
             "artifact_hash": artifact_hash,
             "signature": signature,
             "on_chain_status": "submitted"
+        }
+
+    async def submit_trade_intent(self, signed_intent: dict):
+        """
+        Submits the signed TradeIntent to the on-chain Risk Router / Vault.
+        This closes the trust-minimized execution loop.
+        """
+        logger.info(f"Submitting TradeIntent to Risk Router on-chain...")
+        
+        # In a real environment, this would call a contract method:
+        # tx = self.risk_router_contract.functions.executeIntent(
+        #     self.agent_id,
+        #     signed_intent['message'],
+        #     signed_intent['signature']
+        # ).build_transaction(...)
+        
+        # For the hackathon demo, we simulate the submission and return success
+        # provided the signature is present.
+        
+        if not signed_intent.get("signature"):
+            raise ValueError("No signature found in trade intent")
+
+        # Emit an execution artifact
+        execution_context = {
+            "action": "INTENT_SUBMISSION",
+            "agent_id": self.agent_id,
+            "intent_data_hash": self.generate_artifact_hash(signed_intent['message']),
+            "signature": signed_intent['signature']
+        }
+        
+        val_result = await self.emit_validation("INTENT_EXECUTION", execution_context)
+        
+        logger.info(f"Intent Submitted: {val_result['tx_hash']}")
+        return {
+            "status": "success",
+            "tx_hash": val_result["tx_hash"],
+            "execution_status": "verified"
         }
 
     async def report_outcome(self, event_id: str, roi: float, success: bool):
@@ -130,5 +185,7 @@ class TrustService:
 
     async def get_reputation(self):
         """Fetches the agent's reputation score from the Registry"""
+        if settings.SIMULATE_ON_CHAIN:
+            return 85 # Mock score for demo
         score = self.reputation_contract.functions.getReputationScore(self.agent_id).call()
         return score

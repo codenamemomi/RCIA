@@ -46,10 +46,15 @@ class TradingService:
         elif current_mode == AgentMode.YIELD:
             # Mock amount: $10k for yield allocation
             allocation = await self.yield_service.get_allocation_strategy(10000.0)
+            
+            # Phase 5: Execute yield allocation on-chain
+            execution_result = await self.yield_service.execute_yield_allocation(allocation)
+            
             return {
                 "symbol": "STABLES",
                 "mode": current_mode,
                 "strategy": allocation,
+                "execution": execution_result,
                 "metrics": metrics
             }
             
@@ -81,7 +86,7 @@ class TradingService:
     async def _get_momentum_signal(self, symbol: str, metrics: Dict[str, Any]) -> Dict[str, Any]:
         """Momentum Strategy logic (Internal)"""
         try:
-            ohlcv = await self.market_data.exchange.fetch_ohlcv(symbol, timeframe='1h', limit=settings.MA_SLOW_PERIOD + 1)
+            ohlcv = await self.market_data.get_ohlcv(symbol, timeframe='1h', limit=settings.MA_SLOW_PERIOD + 1)
             closes = [k[4] for k in ohlcv]
             
             fast_ma = sum(closes[-settings.MA_FAST_PERIOD:]) / settings.MA_FAST_PERIOD
@@ -94,22 +99,44 @@ class TradingService:
                 signal = "SELL"
 
             if signal != "HOLD":
-                amount_to_trade = settings.RISK_MAX_EXPOSURE * 0.1
+                # Phase 5: Volatility-based position scaling
+                base_amount = settings.RISK_MAX_EXPOSURE * 0.1
+                amount_to_trade = self.risk_service.calculate_position_size(base_amount, metrics["volatility"])
+                
                 is_safe, reason = self.risk_service.validate_trade(symbol, signal, amount_to_trade, metrics)
                 
                 if not is_safe:
                     return {"symbol": symbol, "signal": "HOLD", "rejected_reason": reason, "metrics": metrics}
                 
-                # In a real scenario, we would wait for the trade to execute and then report the outcome
-                # For this demonstration, we'll simulate a successful outcome report
-                # In production, this would be triggered by a callback or a polling task
+                # Phase 2: Create, Sign, and Submit TradeIntent to Vault
+                import time
+                timestamp = int(time.time())
+                
+                # 1. Sign Intent
+                signed_intent = self.trust_service.signer.sign_trade_intent(
+                    agent_id=self.trust_service.agent_id,
+                    action=signal,
+                    amount=int(amount_to_trade * 10**18), # Assuming 18 decimals for vault
+                    timestamp=timestamp
+                )
+                
+                # 2. Submit to on-chain Risk Router / Vault
+                execution_result = await self.trust_service.submit_trade_intent(signed_intent)
+                
+                # 3. Report outcome (Simulated success for demo)
                 await self.trust_service.report_outcome(
                     event_id=f"TRADE_{symbol}_{timestamp}",
                     roi=0.02, # Example 2% ROI
                     success=True
                 )
 
-                return {"symbol": symbol, "signal": signal, "amount": amount_to_trade, "metrics": metrics}
+                return {
+                    "symbol": symbol, 
+                    "signal": signal, 
+                    "amount": amount_to_trade, 
+                    "execution": execution_result,
+                    "metrics": metrics
+                }
 
             return {"symbol": symbol, "signal": "HOLD", "metrics": metrics}
 

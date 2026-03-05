@@ -55,4 +55,39 @@ class YieldService:
             
             return strategy
         
+            return strategy
+        
         return {"strategy": "STAY_LIQUID", "reason": "No suitable pools found"}
+
+    async def execute_yield_allocation(self, strategy: Dict[str, Any]):
+        """
+        Executes the yield allocation on-chain.
+        In this hackathon version, we simulate the interaction with a Vault contract.
+        """
+        if strategy.get("strategy") != "MAXIMIZE_YIELD":
+            return {"status": "skipped", "reason": "No yield strategy to execute"}
+            
+        pool = strategy["pool"]
+        amount = strategy["amount"]
+        
+        logger.info(f"Executing Yield Allocation: {amount} to {pool['name']}...")
+        
+        # Simulate on-chain call
+        # tx = self.vault_contract.functions.depositStables(pool['id'], amount).build_transaction(...)
+        
+        # We emit a validation artifact specifically for the execution
+        execution_context = {
+            "action": "YIELD_DEPOSIT",
+            "pool_id": pool["id"],
+            "amount": amount,
+            "timestamp": "now" # In real code, use proper timestamp
+        }
+        
+        val_result = await self.trust_service.emit_validation("YIELD_EXECUTION", execution_context)
+        
+        logger.info(f"Yield Allocation Executed: {val_result['tx_hash']}")
+        return {
+            "status": "success",
+            "tx_hash": val_result["tx_hash"],
+            "pool": pool["name"]
+        }

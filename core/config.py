@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    SECRET_KEY: str = os.getenv("SECRET_KEY")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     # Market Data
     DEFAULT_EXCHANGE: str = "binance"
     CCXT_RETRY_ATTEMPTS: int = 3
+    CRYPTOCOMPARE_API_URL: str = "https://min-api.cryptocompare.com/data"
     MOCK_MARKET_DATA: bool = os.getenv("MOCK_MARKET_DATA", "True").lower() == "true"
     
     # Trading Parameters
@@ -66,6 +67,7 @@ class Settings(BaseSettings):
     # Phase 4: Blockchain & Trust Layer (ERC-8004)
     WEB3_RPC_URL: str = os.getenv("WEB3_RPC_URL", "http://localhost:8545")
     AGENT_PRIVATE_KEY: str = os.getenv("AGENT_PRIVATE_KEY", "0x9c73ddee1b22c1e0a2d90f652b43dddcc9d80600402c7a1719982c2cc2c693b7")
+    SIMULATE_ON_CHAIN: bool = os.getenv("SIMULATE_ON_CHAIN", "True").lower() == "true"
     ERC8004_IDENTITY_REGISTRY: str = os.getenv("ERC8004_IDENTITY_REGISTRY", "0x0000000000000000000000000000000000000001")
     ERC8004_VALIDATION_REGISTRY: str = os.getenv("ERC8004_VALIDATION_REGISTRY", "0x0000000000000000000000000000000000000002")
     ERC8004_REPUTATION_REGISTRY: str = os.getenv("ERC8004_REPUTATION_REGISTRY", "0x0000000000000000000000000000000000000003")

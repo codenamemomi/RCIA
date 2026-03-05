@@ -34,7 +34,7 @@ class RiskService:
             return False, reason
 
         # 2. Check Daily Loss (Placeholder logic)
-        if self.daily_pnl < -settings.RISK_DAILY_LOSS_LIMIT:
+        if self.daily_pnl <= -settings.RISK_DAILY_LOSS_LIMIT:
             reason = f"Daily loss limit reached ({self.daily_pnl:.2%})"
             logger.warning(f"Risk Check Failed: {reason}")
             return False, reason
@@ -54,6 +54,23 @@ class RiskService:
 
         logger.info(f"Risk Check Passed for {action} {amount} {symbol}")
         return True, "Risk limits cleared"
+
+    def calculate_position_size(self, base_amount: float, volatility: float) -> float:
+        """
+        Calculates position size scaled by volatility.
+        Formula: base_amount * (target_vol / current_vol)
+        """
+        target_vol = settings.SM_VOLATILITY_LOW
+        if volatility <= 0:
+            return base_amount
+            
+        scaler = target_vol / volatility
+        # Cap scaler at 1.0 (never exceed base_amount) and floor at 0.1
+        scaler = max(0.1, min(1.0, scaler))
+        
+        scaled_amount = base_amount * scaler
+        logger.info(f"Position Scaling: Volatility={volatility:.2%}, Scaler={scaler:.2f}, Scaled Amount={scaled_amount}")
+        return scaled_amount
 
     def update_state(self, new_exposure: float, pnl_change: float):
         """Updates the risk service state based on executed trades"""
