@@ -137,7 +137,7 @@ After=network.target postgresql.service
 Type=simple
 User=${RUN_USER}
 WorkingDirectory=${WORKING_DIR}
-ExecStart=${VENV_PYTHON} -m uvicorn main:app --host 0.0.0.0 --port ${RCIA_PORT} --workers 2
+ExecStart=${VENV_PYTHON} -m uvicorn main:app --host 0.0.0.0 --port ${RCIA_PORT} --root-path /rcia --workers 2
 Restart=on-failure
 RestartSec=5s
 EnvironmentFile=${WORKING_DIR}/.env
@@ -159,11 +159,49 @@ else
     warn "systemd not found. Skipping service installation."
     echo ""
     echo -e "  To start manually:"
-    echo -e "    ${BOLD}source venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port ${RCIA_PORT}${NC}"
+    echo -e "    ${BOLD}source venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port ${RCIA_PORT} --root-path /rcia${NC}"
 fi
 
 # ==============================================================================
-# DONE
+# STEP 8 - Nginx: Add /rcia location block (non-destructive)
+# ==============================================================================
+step "Configuring Nginx at /rcia..."
+
+NGINX_CONF="/etc/nginx/sites-available/api.konasalti.com"
+NGINX_SNIPPET="${WORKING_DIR}/nginx/rcia.conf"
+MARKER="# -- RCIA location block --"
+
+if ! command -v nginx >/dev/null 2>&1; then
+    warn "Nginx not installed. Skipping."
+    echo -e "  Add the contents of ${BOLD}nginx/rcia.conf${NC} to your Nginx server block manually."
+
+elif [ ! -f "$NGINX_CONF" ]; then
+    warn "Nginx config not found at ${NGINX_CONF}. Skipping."
+    echo -e "  Add the contents of ${BOLD}nginx/rcia.conf${NC} to your server's Nginx config manually."
+
+elif grep -q "$MARKER" "$NGINX_CONF"; then
+    warn "RCIA Nginx block already present in ${NGINX_CONF}. Skipping."
+
+else
+    # Build the injected block with the real port
+    INJECT_BLOCK=$(sed "s/RCIA_PORT/${RCIA_PORT}/g" "$NGINX_SNIPPET")
+
+    # Write to a temp file so we can safely test before applying
+    TEMP_CONF=$(mktemp)
+    # Insert our block before the final closing `}` of the server block
+    awk -v block="${MARKER}"$'\n'"${INJECT_BLOCK}" '/^\}$/{print block} {print}' "$NGINX_CONF" > "$TEMP_CONF"
+
+    # Validate the modified config with nginx -t
+    if sudo nginx -c "$TEMP_CONF" -t 2>/dev/null; then
+        sudo cp "$TEMP_CONF" "$NGINX_CONF"
+        sudo systemctl reload nginx
+        ok "Nginx reloaded. RCIA is live at https://api.konasalti.com/rcia"
+    else
+        warn "Nginx config test failed. Changes were NOT applied to protect existing services."
+        echo -e "  Add the block from ${BOLD}nginx/rcia.conf${NC} to ${BOLD}${NGINX_CONF}${NC} manually."
+    fi
+    rm -f "$TEMP_CONF"
+fi
 # ==============================================================================
 echo ""
 echo -e "${GREEN}${BOLD}"
