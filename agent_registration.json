@@ -1,0 +1,20 @@
+{
+    "name": "RCIA-Agent",
+    "description": "Research & Compliance Infrastructure for Agents. Automated risk-managed portfolio execution.",
+    "capabilities": [
+        "GROWTH",
+        "YIELD",
+        "HEDGE",
+        "DEFENSIVE"
+    ],
+    "endpoints": {
+        "mcp": "http://api.konasalti.com/rcia/api/v1/mcp/sse",
+        "status": "http://api.konasalti.com/rcia/api/v1/agent/status"
+    },
+    "agent_wallet": "0xe4f2aB7bB6EE5407350c033E3176334Dff45992b",
+    "smart_account_enabled": true,
+    "erc4337_settings": {
+        "entry_point": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+        "factory": "0x..."
+    }
+}

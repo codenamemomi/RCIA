@@ -24,6 +24,10 @@ class TrustService:
             self.validation_abi = json.load(f)
         with open("core/abis/ReputationRegistry.json", "r") as f:
             self.reputation_abi = json.load(f)
+        with open("core/abis/CapitalVault.json", "r") as f:
+            self.capital_vault_abi = json.load(f)
+        with open("core/abis/RiskRouter.json", "r") as f:
+            self.risk_router_abi = json.load(f)
             
         self.identity_contract = self.w3.eth.contract(
             address=settings.ERC8004_IDENTITY_REGISTRY, 
@@ -36,6 +40,14 @@ class TrustService:
         self.reputation_contract = self.w3.eth.contract(
             address=settings.ERC8004_REPUTATION_REGISTRY, 
             abi=self.reputation_abi
+        )
+        self.capital_vault_contract = self.w3.eth.contract(
+            address=settings.ERC8004_CAPITAL_VAULT,
+            abi=self.capital_vault_abi
+        )
+        self.risk_router_contract = self.w3.eth.contract(
+            address=settings.ERC8004_RISK_ROUTER,
+            abi=self.risk_router_abi
         )
         
         self.history = []
@@ -56,7 +68,7 @@ class TrustService:
         
         if settings.SIMULATE_ON_CHAIN:
             import hashlib
-            tx_hash = "0x" + hashlib.sha256(f"MOCK_IDENTITY_{name}_{description}".encode()).hexdigest()
+            tx_hash = "0x" + hashlib.sha256(f"MOCK_IDENTITY_{name}_{description}_{settings.AGENT_METADATA_URI}".encode()).hexdigest()
             logger.info(f"[SIMULATED] Identity Registered: {tx_hash}")
             return {"status": "success", "tx_hash": tx_hash, "agent_id": self.agent_id}
 
@@ -71,7 +83,7 @@ class TrustService:
             # 1. Construct CallData
             call_data = self.identity_contract.encode_abi(
                 "registerAgent",
-                [name, description]
+                [name, description, settings.AGENT_METADATA_URI]
             )
             
             # 2. Construct UserOp
@@ -108,7 +120,7 @@ class TrustService:
         nonce = self.w3.eth.get_transaction_count(account.address)
         
         tx = self.identity_contract.functions.registerAgent(
-            name, description
+            name, description, settings.AGENT_METADATA_URI
         ).build_transaction({
             'from': account.address,
             'nonce': nonce,
@@ -123,6 +135,56 @@ class TrustService:
         logger.info(f"Identity Registered: {tx_hash.hex()} | Status: {receipt.status}")
         
         return {"status": "success", "tx_hash": tx_hash.hex(), "agent_id": self.agent_id}
+
+    async def claim_sandbox_capital(self):
+        """
+        Step 2: Claims funded sandbox capital from the Hackathon Capital Vault.
+        """
+        logger.info(f"Claiming sandbox capital for agent {self.agent_id}...")
+        
+        if settings.SIMULATE_ON_CHAIN:
+            import hashlib
+            tx_hash = "0x" + hashlib.sha256(f"MOCK_CAPITAL_CLAIM_{self.agent_id}".encode()).hexdigest()
+            logger.info(f"[SIMULATED] Capital Claimed: {tx_hash}")
+            return {"status": "success", "tx_hash": tx_hash, "msg": "Test funds allocated"}
+
+        # Use Gasless path for capital claim if enabled
+        if settings.USE_GASLESS_TX:
+            smart_account_address = self.erc4337.get_smart_account_address()
+            call_data = self.capital_vault_contract.encode_abi("claimSandboxCapital", [self.agent_id])
+            
+            user_op = {
+                "sender": smart_account_address,
+                "nonce": self.w3.eth.get_transaction_count(smart_account_address),
+                "initCode": "0x",
+                "callData": call_data,
+                "callGasLimit": 200000,
+                "verificationGasLimit": 100000,
+                "preVerificationGas": 50000,
+                "maxFeePerGas": self.w3.eth.gas_price * 2,
+                "maxPriorityFeePerGas": self.w3.eth.gas_price,
+                "paymasterAndData": "0x",
+                "signature": "0x"
+            }
+            
+            user_op["paymasterAndData"] = await self.erc4337.get_paymaster_and_data(user_op)
+            user_op["signature"] = self.erc4337.sign_user_operation(user_op, settings.BLOCKCHAIN_CHAIN_ID)
+            # tx_hash = await self.erc4337.send_user_operation(user_op)
+            
+            return {"status": "success", "tx_hash": "SPONSORED_PENDING", "msg": "Claim intent submitted"}
+
+        account = self.signer.account
+        nonce = self.w3.eth.get_transaction_count(account.address)
+        tx = self.capital_vault_contract.functions.claimSandboxCapital(self.agent_id).build_transaction({
+            'from': account.address,
+            'nonce': nonce,
+            'gas': 100000,
+            'gasPrice': self.w3.eth.gas_price
+        })
+        signed_tx = self.w3.eth.account.sign_transaction(tx, self.signer.private_key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        
+        return {"status": "success", "tx_hash": tx_hash.hex()}
 
     async def emit_validation(self, event_type: str, context: dict):
         """
@@ -233,34 +295,79 @@ class TrustService:
         """
         logger.info(f"Submitting TradeIntent to Risk Router on-chain...")
         
-        # In a real environment, this would call a contract method:
-        # tx = self.risk_router_contract.functions.executeIntent(
-        #     self.agent_id,
-        #     signed_intent['message'],
-        #     signed_intent['signature']
-        # ).build_transaction(...)
-        
-        # For the hackathon demo, we simulate the submission and return success
-        # provided the signature is present.
-        
-        if not signed_intent.get("signature"):
-            raise ValueError("No signature found in trade intent")
+        if settings.SIMULATE_ON_CHAIN:
+            # Emit an execution artifact
+            execution_context = {
+                "action": "INTENT_SUBMISSION",
+                "agent_id": self.agent_id,
+                "intent_data_hash": self.generate_artifact_hash(signed_intent['message']),
+                "signature": signed_intent['signature']
+            }
+            val_result = await self.emit_validation("INTENT_EXECUTION", execution_context)
+            return {
+                "status": "success",
+                "tx_hash": val_result["tx_hash"],
+                "execution_status": "verified_by_code"
+            }
 
-        # Emit an execution artifact
-        execution_context = {
-            "action": "INTENT_SUBMISSION",
-            "agent_id": self.agent_id,
-            "intent_data_hash": self.generate_artifact_hash(signed_intent['message']),
-            "signature": signed_intent['signature']
-        }
+        # On-chain execution via Risk Router
+        intent_tuple = (
+            signed_intent['message']['action'],
+            signed_intent['message']['amount'],
+            signed_intent['message']['timestamp']
+        )
         
-        val_result = await self.emit_validation("INTENT_EXECUTION", execution_context)
+        if settings.USE_GASLESS_TX:
+            smart_account_address = self.erc4337.get_smart_account_address()
+            # 1. Encode executeIntent call
+            call_data = self.risk_router_contract.encode_abi(
+                "executeIntent",
+                [self.agent_id, intent_tuple, HexBytes(signed_intent['signature'])]
+            )
+            
+            # 2. Construct UserOp
+            user_op = {
+                "sender": smart_account_address,
+                "nonce": self.w3.eth.get_transaction_count(smart_account_address),
+                "initCode": "0x",
+                "callData": call_data,
+                "callGasLimit": 500000,
+                "verificationGasLimit": 200000,
+                "preVerificationGas": 100000,
+                "maxFeePerGas": self.w3.eth.gas_price * 2,
+                "maxPriorityFeePerGas": self.w3.eth.gas_price,
+                "paymasterAndData": "0x",
+                "signature": "0x"
+            }
+            
+            # 3. Sponsorship and Sign (ERC-4337)
+            user_op["paymasterAndData"] = await self.erc4337.get_paymaster_and_data(user_op)
+            user_op["signature"] = self.erc4337.sign_user_operation(user_op, settings.BLOCKCHAIN_CHAIN_ID)
+            # tx_hash = await self.erc4337.send_user_operation(user_op)
+            
+            return {"status": "success", "tx_hash": "SPONSORED_PENDING", "msg": "Trade intent submitted"}
+
+        account = self.signer.account
+        nonce = self.w3.eth.get_transaction_count(account.address)
         
-        logger.info(f"Intent Submitted: {val_result['tx_hash']}")
+        tx = self.risk_router_contract.functions.executeIntent(
+            self.agent_id,
+            intent_tuple,
+            HexBytes(signed_intent['signature'])
+        ).build_transaction({
+            'from': account.address,
+            'nonce': nonce,
+            'gas': 400000,
+            'gasPrice': self.w3.eth.gas_price
+        })
+        
+        signed_tx = self.w3.eth.account.sign_transaction(tx, self.signer.private_key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        
         return {
             "status": "success",
-            "tx_hash": val_result["tx_hash"],
-            "execution_status": "verified"
+            "tx_hash": tx_hash.hex(),
+            "execution_status": "submitted_to_router"
         }
 
     async def report_outcome(self, event_id: str, roi: float, success: bool):

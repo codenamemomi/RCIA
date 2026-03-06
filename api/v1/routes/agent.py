@@ -86,3 +86,14 @@ async def get_reputation(request: Request):
     trust: TrustService = request.app.state.trust_service
     score = await trust.get_reputation()
     return {"agent_id": trust.agent_id, "trust_score": score}
+
+@router.post("/claim-capital")
+async def claim_capital(request: Request):
+    """Claims sandbox capital from the Hackathon Vault."""
+    trust: TrustService = request.app.state.trust_service
+    try:
+        result = await trust.claim_sandbox_capital()
+        return result
+    except Exception as e:
+        logger.error(f"Capital claim failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

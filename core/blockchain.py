@@ -109,6 +109,15 @@ class ERC4337Helper:
         addr_hash = keccak(combined)
         return Web3.to_checksum_address("0x" + addr_hash.hex()[-40:])
 
+    def sign_message_1271(self, message: bytes) -> str:
+        """
+        Signs a message that can be verified via EIP-1271 by the Smart Account.
+        In a standard LightAccount, this is often the same as the owner's signature.
+        """
+        from eth_account.messages import encode_defunct
+        signed = self.signer.sign_message(encode_defunct(primitive=message))
+        return "0x" + signed.signature.hex()
+
     async def send_user_operation(self, user_op: Dict[str, Any]) -> str:
         """Sends UserOperation to Alchemy Bundler."""
         if not settings.ALCHEMY_API_KEY:
