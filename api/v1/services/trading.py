@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Dict, Any, List, Optional
 from api.v1.services.market_data import MarketDataService
 from api.v1.services.risk import RiskService
@@ -24,7 +25,7 @@ class TradingService:
         self.market_data = market_data
         self.risk_service = risk_service
         self.trust_service = trust_service
-        self.state_machine = state_machine or CapitalStateMachine()
+        self.state_machine = state_machine or CapitalStateMachine(trust_service)
         self.yield_service = yield_service or YieldService(trust_service)
         self.hedge_service = hedge_service or HedgeService(trust_service)
         self.trade_history = []
@@ -40,6 +41,8 @@ class TradingService:
         """
         current_mode = self.state_machine.current_mode
         metrics = await self.market_data.get_market_metrics(symbol)
+        
+        logger.info(f"Signal Request: {symbol} in {current_mode} mode")
         
         if current_mode == AgentMode.GROWTH:
             return await self._get_momentum_signal(symbol, metrics)
@@ -109,9 +112,10 @@ class TradingService:
 
     async def _get_momentum_signal(self, symbol: str, metrics: Dict[str, Any]) -> Dict[str, Any]:
         """Momentum Strategy logic (Internal)"""
+        current_mode = self.state_machine.current_mode
         try:
             ohlcv = await self.market_data.get_ohlcv(symbol, timeframe='1h', limit=settings.MA_SLOW_PERIOD + 1)
-            closes = [k[4] for k in ohlcv]
+            closes = [float(k[4]) for k in ohlcv]
             
             fast_ma = sum(closes[-settings.MA_FAST_PERIOD:]) / settings.MA_FAST_PERIOD
             slow_ma = sum(closes[-settings.MA_SLOW_PERIOD:]) / settings.MA_SLOW_PERIOD
@@ -121,8 +125,20 @@ class TradingService:
                 signal = "BUY"
             elif fast_ma < slow_ma * 0.995:
                 signal = "SELL"
-
+            
             if signal != "HOLD":
+                # Step 1: Emit 'strategy_checkpoint' for scoring
+                strategy_artifact = {
+                    "type": "trade_signal",
+                    "label": "strategy_checkpoint",
+                    "strategy": "MA_Crossover",
+                    "asset": symbol.split('/')[0],
+                    "signal": signal,
+                    "metrics": metrics,
+                    "timestamp": int(time.time())
+                }
+                await self.trust_service.emit_validation("strategy_checkpoint", strategy_artifact)
+
                 # Get real sandbox balance from Vault
                 sandbox_balance = await self.trust_service.get_sandbox_balance()
                 
@@ -137,7 +153,9 @@ class TradingService:
                 
                 if not is_safe:
                     # Emit Risk Rejection Artifact for ERC-8004
-                    await self.trust_service.emit_validation("RISK_REJECTION", {
+                    await self.trust_service.emit_validation("risk_rejection", {
+                        "type": "risk_check",
+                        "label": "risk_rejection",
                         "symbol": symbol,
                         "action": signal,
                         "amount": amount_to_trade,
@@ -146,19 +164,40 @@ class TradingService:
                     })
                     return {"symbol": symbol, "signal": "HOLD", "rejected_reason": reason, "metrics": metrics}
                 
-                # Phase 2: Create, Sign, and Submit TradeIntent to Vault
-                import time
+                # Phase 2: Create, Sign, and Submit TradeIntent to Risk Router
                 timestamp = int(time.time())
                 
-                # 1. Sign Intent
-                signed_intent = self.trust_service.signer.sign_trade_intent(
-                    agent_id=self.trust_service.agent_id,
-                    action=signal,
-                    amount=int(amount_to_trade * 10**18), # Assuming 18 decimals for vault
-                    timestamp=timestamp
-                )
+                # Map symbol to tokens (Simplified for hackathon)
+                # If BUY: USDC -> WETH
+                # If SELL: WETH -> USDC
+                if signal == "BUY":
+                    token_in = settings.TOKEN_USDC
+                    token_out = settings.TOKEN_WETH
+                else:
+                    token_in = settings.TOKEN_WETH
+                    token_out = settings.TOKEN_USDC
+
+                # 1. Sign Intent with User-Requested Structure
+                trade_intent = {
+                    "agentId": self.trust_service.agent_id,
+                    "action": signal,
+                    "asset": symbol.split('/')[0], # e.g. "BTC"
+                    "amount": int(amount_to_trade * 10**18),
+                    "timestamp": timestamp
+                }
+                signature = self.trust_service.signer.sign_trade(trade_intent)
                 
-                # 2. Submit to on-chain Risk Router / Vault
+                signed_intent = {
+                    "signature": signature,
+                    "message": trade_intent
+                }
+                
+                # 2. Submit to on-chain Risk Router
+                # For on-chain submission, we also need the token addresses
+                # We'll attach them to the signed_intent for the trust service to use
+                signed_intent["token_in"] = token_in
+                signed_intent["token_out"] = token_out
+                
                 execution_result = await self.trust_service.submit_trade_intent(signed_intent)
                 
                 # 3. Report outcome (Simulated success for demo)
@@ -170,7 +209,6 @@ class TradingService:
                 )
 
                 # 4. Update internal metrics & history
-                current_mode = self.state_machine.current_mode
                 self.risk_service.update_state(amount_to_trade, roi)
                 self.trade_history.append({
                     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp)),
@@ -192,7 +230,7 @@ class TradingService:
             # Phase 13: Sideways Market Proactive Yield Parking
             logger.info("Sideways market detected in GROWTH mode; parking 20% in yield pools")
             sandbox_balance = await self.trust_service.get_sandbox_balance()
-            allocation = await self.yield_service.get_allocation_strategy(sandbox_balance * 0.2) # Park 20%
+            allocation = await self.yield_service.get_allocation_strategy(sandbox_balance * 0.2, emit_artifact=False) # Park 20%
             execution_result = await self.yield_service.execute_yield_allocation(allocation)
             
             return {
@@ -207,7 +245,7 @@ class TradingService:
 
         except Exception as e:
             logger.error(f"Error in momentum strategy: {e}")
-            return {"symbol": symbol, "signal": "ERROR", "error": str(e)}
+            return {"symbol": symbol, "signal": "HOLD", "error": str(e)}
 
         except Exception as e:
             logger.error(f"Error generating trade signal for {symbol}: {e}")

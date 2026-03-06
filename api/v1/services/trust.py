@@ -290,20 +290,23 @@ class TrustService:
 
     async def submit_trade_intent(self, signed_intent: dict):
         """
-        Submits the signed TradeIntent to the on-chain Risk Router / Vault.
-        This closes the trust-minimized execution loop.
+        Submits a signed trade intent to the Risk Router.
+        This is Step 3 of the Trust flow.
         """
-        logger.info(f"Submitting TradeIntent to Risk Router on-chain...")
+        logger.info(f"Submitting Trade Intent for Agent {self.agent_id}...")
         
         if settings.SIMULATE_ON_CHAIN:
-            # Emit an execution artifact
+            # Emit a 'trade_intent' artifact for scoring
             execution_context = {
-                "action": "INTENT_SUBMISSION",
+                "type": "trade_intent",
                 "agent_id": self.agent_id,
-                "intent_data_hash": self.generate_artifact_hash(signed_intent['message']),
-                "signature": signed_intent['signature']
+                "token_in": signed_intent.get('token_in'),
+                "token_out": signed_intent.get('token_out'),
+                "amount": signed_intent['message']['amount'],
+                "signature": signed_intent['signature'],
+                "timestamp": signed_intent['message']['timestamp']
             }
-            val_result = await self.emit_validation("INTENT_EXECUTION", execution_context)
+            val_result = await self.emit_validation("trade_intent", execution_context)
             return {
                 "status": "success",
                 "tx_hash": val_result["tx_hash"],
@@ -311,18 +314,18 @@ class TrustService:
             }
 
         # On-chain execution via Risk Router
-        intent_tuple = (
-            signed_intent['message']['action'],
-            signed_intent['message']['amount'],
-            signed_intent['message']['timestamp']
-        )
+        agent_id = signed_intent['message']['agentId']
+        token_in = signed_intent.get('token_in', settings.TOKEN_USDC)
+        token_out = signed_intent.get('token_out', settings.TOKEN_WETH)
+        amount = signed_intent['message']['amount']
+        signature = HexBytes(signed_intent['signature'])
         
         if settings.USE_GASLESS_TX:
             smart_account_address = self.erc4337.get_smart_account_address()
-            # 1. Encode executeIntent call
+            # 1. Encode submitTradeIntent call
             call_data = self.risk_router_contract.encode_abi(
-                "executeIntent",
-                [self.agent_id, intent_tuple, HexBytes(signed_intent['signature'])]
+                "submitTradeIntent",
+                [agent_id, token_in, token_out, amount, signature]
             )
             
             # 2. Construct UserOp
@@ -345,15 +348,17 @@ class TrustService:
             user_op["signature"] = self.erc4337.sign_user_operation(user_op, settings.BLOCKCHAIN_CHAIN_ID)
             # tx_hash = await self.erc4337.send_user_operation(user_op)
             
-            return {"status": "success", "tx_hash": "SPONSORED_PENDING", "msg": "Trade intent submitted"}
+            return {"status": "success", "tx_hash": "SPONSORED_PENDING", "msg": "Trade intent submitted via Risk Router"}
 
         account = self.signer.account
         nonce = self.w3.eth.get_transaction_count(account.address)
         
-        tx = self.risk_router_contract.functions.executeIntent(
-            self.agent_id,
-            intent_tuple,
-            HexBytes(signed_intent['signature'])
+        tx = self.risk_router_contract.functions.submitTradeIntent(
+            agent_id,
+            token_in,
+            token_out,
+            amount,
+            signature
         ).build_transaction({
             'from': account.address,
             'nonce': nonce,

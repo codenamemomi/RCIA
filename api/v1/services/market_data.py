@@ -58,6 +58,9 @@ class MarketDataService:
         """
         Fetches OHLCV data with aggregator/mock fallback.
         """
+        # If we are being mocked in a test, the Mock will return its own value
+        # and this function body might not actually execute depending on how it's mocked.
+        # However, to be safe for all mock types:
         if settings.MOCK_MARKET_DATA:
             return self._get_mock_ohlcv(limit)
 

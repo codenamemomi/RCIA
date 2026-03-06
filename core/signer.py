@@ -27,14 +27,34 @@ class IntentSigner:
             "verifyingContract": target_addr
         }
 
-    def sign_trade_intent(self, agent_id: int, action: str, amount: int, timestamp: int):
-        """Signs a TradeIntent structured data packet using EIP-712"""
-        domain_data = self.get_domain_data()
-        
+    def sign_trade(self, trade_intent: dict):
+        """Signs a TradeIntent structured data packet using EIP-712 (User requested format)"""
         types = {
             "TradeIntent": [
                 {"name": "agentId", "type": "uint256"},
                 {"name": "action", "type": "string"},
+                {"name": "asset", "type": "string"},
+                {"name": "amount", "type": "uint256"},
+                {"name": "timestamp", "type": "uint256"}
+            ]
+        }
+        
+        # Ensure agentId is present
+        if "agentId" not in trade_intent:
+            trade_intent["agentId"] = settings.AGENT_ID
+            
+        structured_data = encode_typed_data(self.get_domain_data(), types, trade_intent)
+        signed_message = self.account.sign_message(structured_data)
+        
+        return "0x" + signed_message.signature.hex()
+
+    def sign_trade_intent(self, agent_id: int, token_in: str, token_out: str, amount: int, timestamp: int):
+        """Signs a TradeIntent structured data packet using EIP-712 (Contract format)"""
+        types = {
+            "TradeIntent": [
+                {"name": "agentId", "type": "uint256"},
+                {"name": "tokenIn", "type": "address"},
+                {"name": "tokenOut", "type": "address"},
                 {"name": "amount", "type": "uint256"},
                 {"name": "timestamp", "type": "uint256"}
             ]
@@ -42,7 +62,8 @@ class IntentSigner:
         
         message = {
             "agentId": agent_id,
-            "action": action,
+            "tokenIn": Web3.to_checksum_address(token_in),
+            "tokenOut": Web3.to_checksum_address(token_out),
             "amount": amount,
             "timestamp": timestamp
         }

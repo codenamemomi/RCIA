@@ -14,10 +14,10 @@ class AgentMode(str, Enum):
     HEDGE = "HEDGE"         # Active protection during high volatility
 
 class CapitalStateMachine:
-    def __init__(self, trust_service: TrustService, initial_mode: AgentMode = AgentMode.GROWTH):
+    def __init__(self, trust_service: TrustService = None, initial_mode: AgentMode = AgentMode.GROWTH):
         self.current_mode = initial_mode
         self.last_transition_time = datetime.now(timezone.utc)
-        self.trust_service = trust_service
+        self.trust_service = trust_service or TrustService()
         logger.info(f"CapitalStateMachine initialized in {initial_mode.name} mode")
 
     async def transition(self, metrics: Dict[str, Any]) -> Tuple[AgentMode, Dict[str, Any]]:
@@ -63,8 +63,13 @@ class CapitalStateMachine:
                 old_mode, new_mode, metrics, reason
             )
             
+            # Determine label for scoring
+            event_label = "risk_check"
+            if new_mode == AgentMode.DEFENSIVE:
+                event_label = "defensive_action"
+                
             # On-chain validation submission
-            await self.trust_service.emit_validation("STATE_TRANSITION", validation_packet)
+            await self.trust_service.emit_validation(event_label, validation_packet)
 
             return new_mode, validation_packet
         

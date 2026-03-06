@@ -51,12 +51,12 @@ class Settings(BaseSettings):
     # Refresh Token
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    # State Machine Thresholds (Demo Responsive)
-    SM_DRAWDOWN_THRESHOLD: float = 0.10 # Increased from 0.03 to allow more breathing room
-    SM_VOLATILITY_HIGH: float = 0.20 # Increased from 0.12
-    SM_VOLATILITY_MEDIUM: float = 0.15 # Increased from 0.08
-    SM_MOMENTUM_GROWTH: float = 0.005 # Decreased from 0.02 to trigger GROWTH easier
-    SM_VOLATILITY_LOW: float = 0.10 # Increased from 0.05
+    # State Machine Thresholds (Standard)
+    SM_DRAWDOWN_THRESHOLD: float = 0.05
+    SM_VOLATILITY_HIGH: float = 0.15
+    SM_VOLATILITY_MEDIUM: float = 0.10
+    SM_MOMENTUM_GROWTH: float = 0.02
+    SM_VOLATILITY_LOW: float = 0.08
     
     # Market Data
     DEFAULT_EXCHANGE: str = "binance"
@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     ERC8004_CAPITAL_VAULT: str = os.getenv("ERC8004_CAPITAL_VAULT", "0x0000000000000000000000000000000000000004")
     ERC8004_RISK_ROUTER: str = os.getenv("ERC8004_RISK_ROUTER", "0x0000000000000000000000000000000000000005")
     AGENT_ID: int = int(os.getenv("AGENT_ID", "1"))
+    
+    # Base Sepolia Token Addresses
+    TOKEN_USDC: str = os.getenv("TOKEN_USDC", "0x036CbD53842c5426634e7929541eC2318f3dCF7e")
+    TOKEN_WETH: str = os.getenv("TOKEN_WETH", "0x4200000000000000000000000000000000000006")
     
     model_config = SettingsConfigDict(env_file=".env")
 

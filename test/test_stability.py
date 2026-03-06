@@ -59,17 +59,21 @@ async def test_rpc_failure_resilience():
     mock_trust = TrustService() # Real instance but we will patch w3
     
     # Patch Web3 provider to raise an exception
-    with patch.object(mock_trust.w3.eth, 'get_transaction_count', side_effect=Exception("RPC Connection Failed")):
-        risk = RiskService()
-        sm = CapitalStateMachine()
-        ts = TradingService(mock_md, risk, mock_trust, sm)
-        
-        # Attempt to emit validation should fail gracefully or be handled
-        try:
-            await mock_trust.emit_validation("TEST", {"data": "test"})
-            pytest.fail("Should have raised an RPC error")
-        except Exception as e:
-            assert "RPC Connection Failed" in str(e)
+    # Also patch settings.SIMULATE_ON_CHAIN to False to trigger the real RPC path
+    # and USE_GASLESS_TX to False to avoid Alchemy credentials check
+    with patch("api.v1.services.trust.settings.SIMULATE_ON_CHAIN", False):
+        with patch("api.v1.services.trust.settings.USE_GASLESS_TX", False):
+            with patch.object(mock_trust.w3.eth, 'get_transaction_count', side_effect=Exception("RPC Connection Failed")):
+                risk = RiskService()
+                sm = CapitalStateMachine()
+                ts = TradingService(mock_md, risk, mock_trust, sm)
+                
+                # Attempt to emit validation should fail gracefully or be handled
+                try:
+                    await mock_trust.emit_validation("TEST", {"data": "test"})
+                    pytest.fail("Should have raised an RPC error")
+                except Exception as e:
+                    assert "RPC Connection Failed" in str(e)
             
         # In a real app, the calling service (like StateMachine) would catch this
         # and trigger a safety mode. Let's verify our state machine logic doesn't crash.

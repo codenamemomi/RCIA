@@ -25,7 +25,7 @@ class YieldService:
         logger.info(f"Evaluating {len(self.pools)} stablecoin pools")
         return self.pools
 
-    async def get_allocation_strategy(self, amount: float) -> Dict[str, Any]:
+    async def get_allocation_strategy(self, amount: float, emit_artifact: bool = True) -> Dict[str, Any]:
         """
         Determines the best pool for allocation based on APY vs. Liquidity.
         Favors highest APY that meets a minimum liquidity threshold.
@@ -50,8 +50,9 @@ class YieldService:
                 "expected_annual_return": amount * best_pool["apy"]
             }
             
-            # Emit validation artifact for ERC-8004
-            await self.trust_service.emit_validation("YIELD_ALLOCATION", strategy)
+            # Emit validation artifact for ERC-8004 if requested
+            if emit_artifact:
+                await self.trust_service.emit_validation("YIELD_ALLOCATION", strategy)
             
             return strategy
         

@@ -24,7 +24,7 @@ def test_risk_check_exposure_failed():
     risk.update_state(0.95, 0) # Current 95%
     metrics = {"drawdown": 0.01, "volatility": 0.05}
     # 0.95 + 0.10 = 1.05 > settings.RISK_MAX_EXPOSURE (1.0 or 0.8 depending on config)
-    allowed, reason = risk.validate_trade("BTC/USDT", "BUY", 0.1, metrics)
+    allowed, reason = risk.validate_trade("BTC/USDT", "BUY", 0.1, metrics, total_capital=1.0)
     assert allowed is False
     assert "exposure" in reason
 
