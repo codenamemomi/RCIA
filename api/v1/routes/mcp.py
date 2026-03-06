@@ -1,4 +1,6 @@
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+from core.config import settings
 from typing import Any, Optional
 import logging
 import json
@@ -9,7 +11,12 @@ logger = logging.getLogger(__name__)
 # instructions help the LLM understand how to use this agent
 mcp = FastMCP(
     "RCIA-Agent",
-    instructions="I am the Research & Compliance Infrastructure for Agents (RCIA). I provide tools to check agent status, trade history, and trigger market evaluations."
+    instructions="I am the Research & Compliance Infrastructure for Agents (RCIA). I provide tools to check agent status, trade history, and trigger market evaluations.",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=settings.MCP_ENABLE_SECURITY,
+        allowed_hosts=[f"{h}:*" for h in settings.MCP_ALLOWED_HOSTS] + settings.MCP_ALLOWED_HOSTS,
+        allowed_origins=[f"http://{h}:*" for h in settings.MCP_ALLOWED_HOSTS] + [f"http://{h}" for h in settings.MCP_ALLOWED_HOSTS]
+    )
 )
 
 # We'll use a globally accessible app reference to get services
