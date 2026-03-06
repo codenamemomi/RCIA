@@ -399,3 +399,10 @@ class TrustService:
             return 0 # Start at 0 for live mode demo
         score = self.reputation_contract.functions.getReputationScore(self.agent_id).call()
         return score
+
+    async def get_sandbox_balance(self):
+        """Fetches the current sandbox capital balance from the Vault"""
+        if settings.SIMULATE_ON_CHAIN:
+            return 1000.0 # Mock balance for demo
+        balance = self.capital_vault_contract.functions.getAccountBalance(self.agent_id).call()
+        return balance / 10**18 # Format to human readable

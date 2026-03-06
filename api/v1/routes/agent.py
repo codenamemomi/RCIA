@@ -97,3 +97,10 @@ async def claim_capital(request: Request):
     except Exception as e:
         logger.error(f"Capital claim failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sandbox-balance")
+async def get_sandbox_balance(request: Request):
+    """Fetches current sandbox fund balance."""
+    trust: TrustService = request.app.state.trust_service
+    balance = await trust.get_sandbox_balance()
+    return {"agent_id": trust.agent_id, "balance": balance, "currency": "TEST_ETH"}
