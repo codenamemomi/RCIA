@@ -54,6 +54,17 @@ class TradingService:
             # Phase 5: Execute yield allocation on-chain
             execution_result = await self.yield_service.execute_yield_allocation(allocation)
             
+            # Update history to show agent activity in the Dashboard
+            import time
+            self.trade_history.append({
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "market": "USDC/USDT",
+                "size": sandbox_balance,
+                "mode": str(current_mode),
+                "result": "STABLE",
+                "tx_hash": execution_result.get("tx_hash", "0x...")
+            })
+            
             return {
                 "symbol": "STABLES",
                 "mode": current_mode,
@@ -77,6 +88,15 @@ class TradingService:
             }
             
         elif current_mode == AgentMode.DEFENSIVE:
+            import time
+            self.trade_history.append({
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "market": symbol,
+                "size": "ALL",
+                "mode": str(current_mode),
+                "result": "EXIT",
+                "tx_hash": "0x..." # Safety exit usually immediate
+            })
             return {
                 "symbol": symbol,
                 "mode": current_mode,
