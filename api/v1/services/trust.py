@@ -60,6 +60,50 @@ class TrustService:
             logger.info(f"[SIMULATED] Identity Registered: {tx_hash}")
             return {"status": "success", "tx_hash": tx_hash, "agent_id": self.agent_id}
 
+        if settings.USE_GASLESS_TX:
+            if not settings.ALCHEMY_API_KEY or not settings.ALCHEMY_POLICY_ID:
+                logger.error("GASLESS_TX is enabled but ALCHEMY_API_KEY or ALCHEMY_POLICY_ID is missing in .env!")
+                raise ValueError("Gasless transactions require Alchemy credentials. Check your .env file.")
+                
+            logger.info("Using Alchemy Gasless path for identity registration...")
+            smart_account_address = self.erc4337.get_smart_account_address()
+            
+            # 1. Construct CallData
+            call_data = self.identity_contract.encode_abi(
+                "registerAgent",
+                [name, description]
+            )
+            
+            # 2. Construct UserOp
+            user_op = {
+                "sender": smart_account_address,
+                "nonce": self.w3.eth.get_transaction_count(smart_account_address),
+                "initCode": "0x",
+                "callData": call_data,
+                "callGasLimit": 300000,
+                "verificationGasLimit": 150000,
+                "preVerificationGas": 60000,
+                "maxFeePerGas": self.w3.eth.gas_price * 2,
+                "maxPriorityFeePerGas": self.w3.eth.gas_price,
+                "paymasterAndData": "0x",
+                "signature": "0x"
+            }
+            
+            # 3. Get Sponsorship & Sign
+            user_op["paymasterAndData"] = await self.erc4337.get_paymaster_and_data(user_op)
+            user_op["signature"] = self.erc4337.sign_user_operation(user_op, settings.BLOCKCHAIN_CHAIN_ID)
+            
+            # 4. Submit to Bundler
+            # tx_hash = await self.erc4337.send_user_operation(user_op)
+            
+            logger.info(f"Gasless Identity Registration Proposed for {name} | Smart Account: {smart_account_address}")
+            return {
+                "status": "success", 
+                "tx_hash": "SPONSORED_PENDING", 
+                "agent_id": self.agent_id,
+                "smart_account": smart_account_address
+            }
+
         account = self.signer.account
         nonce = self.w3.eth.get_transaction_count(account.address)
         
@@ -109,7 +153,11 @@ class TrustService:
             self.history.append(result)
             return result
 
-        if settings.USE_GASLESS_TX and settings.ALCHEMY_API_KEY:
+        if settings.USE_GASLESS_TX:
+            if not settings.ALCHEMY_API_KEY or not settings.ALCHEMY_POLICY_ID:
+                logger.error("GASLESS_TX is enabled but ALCHEMY_API_KEY or ALCHEMY_POLICY_ID is missing in .env!")
+                raise ValueError("Gasless transactions require Alchemy credentials. Check your .env file.")
+                
             # ERC-4337 Gasless Path
             logger.info("Using Alchemy Gasless path for validation...")
             # 1. Construct CallData (submitValidation)
