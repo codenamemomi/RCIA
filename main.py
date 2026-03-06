@@ -11,7 +11,7 @@ from api.v1.services.trust import TrustService
 from api.v1.services.yield_optimization import YieldService
 from api.v1.services.hedge import HedgeService
 from core.state_machine import CapitalStateMachine
-from api.v1.routes import api_router
+from api.v1.routes import api_router, mcp
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,6 +33,9 @@ async def lifespan(app: FastAPI):
     app.state.state_machine = sm
     app.state.yield_service = ys
     app.state.hedge_service = hs
+    
+    # Store app instance for MCP router access
+    mcp.app_instance = app
     
     yield
     

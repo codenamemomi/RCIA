@@ -93,3 +93,4 @@ wcwidth==0.6.0
 web3==7.14.1
 websockets==15.0.1
 yarl==1.23.0
+mcp[sse]
