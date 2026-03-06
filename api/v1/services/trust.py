@@ -6,6 +6,7 @@ from eth_utils import keccak
 from hexbytes import HexBytes
 from core.config import settings
 from core.signer import IntentSigner
+from core.blockchain import ERC4337Helper
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,7 @@ class TrustService:
     def __init__(self):
         self.w3 = Web3(Web3.HTTPProvider(settings.WEB3_RPC_URL))
         self.signer = IntentSigner()
+        self.erc4337 = ERC4337Helper(self.w3, settings.AGENT_PRIVATE_KEY)
         self.agent_id = settings.AGENT_ID
         
         # Load ABIs
@@ -106,6 +108,50 @@ class TrustService:
             }
             self.history.append(result)
             return result
+
+        if settings.USE_GASLESS_TX and settings.ALCHEMY_API_KEY:
+            # ERC-4337 Gasless Path
+            logger.info("Using Alchemy Gasless path for validation...")
+            # 1. Construct CallData (submitValidation)
+            call_data = self.validation_contract.encode_abi(
+                "submitValidation",
+                [self.agent_id, HexBytes(artifact_hash), HexBytes(signature)]
+            )
+            
+            # 2. Construct UserOp (simplified for demo)
+            # In production, we'd fetch nonce and estimate gas via Bundler
+            smart_account_address = self.erc4337.get_smart_account_address()
+            user_op = {
+                "sender": smart_account_address,
+                "nonce": self.w3.eth.get_transaction_count(smart_account_address),
+                "initCode": "0x",
+                "callData": call_data,
+                "callGasLimit": 200000,
+                "verificationGasLimit": 100000,
+                "preVerificationGas": 50000,
+                "maxFeePerGas": self.w3.eth.gas_price * 2,
+                "maxPriorityFeePerGas": self.w3.eth.gas_price,
+                "paymasterAndData": "0x",
+                "signature": "0x"
+            }
+            
+            # 3. Get Sponsorship
+            paymaster_data = await self.erc4337.get_paymaster_and_data(user_op)
+            user_op["paymasterAndData"] = paymaster_data
+            
+            # 4. Sign and Send
+            user_op["signature"] = self.erc4337.sign_user_operation(user_op, settings.BLOCKCHAIN_CHAIN_ID)
+            # tx_hash = await self.erc4337.send_user_operation(user_op)
+            
+            logger.info(f"Gasless Validation Proposed: {artifact_hash} | Smart Account: {smart_account_address}")
+            return {
+                "event": event_type,
+                "tx_hash": "SPONSORED_PENDING",
+                "smart_account": smart_account_address,
+                "artifact_hash": artifact_hash,
+                "signature": signature,
+                "on_chain_status": "sponsored"
+            }
 
         account = self.signer.account
         nonce = self.w3.eth.get_transaction_count(account.address)

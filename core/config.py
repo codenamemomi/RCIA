@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     MCP_ENABLE_SECURITY: bool = os.getenv("MCP_ENABLE_SECURITY", "True").lower() == "true"
     MCP_ALLOWED_HOSTS: list = ["localhost", "127.0.0.1", "api.konasalti.com"]
     
+    # Alchemy & Gasless Transactions (ERC-4337)
+    ALCHEMY_API_KEY: Optional[str] = os.getenv("ALCHEMY_API_KEY")
+    ALCHEMY_POLICY_ID: Optional[str] = os.getenv("ALCHEMY_POLICY_ID")
+    ALCHEMY_BUNDLER_URL: str = os.getenv("ALCHEMY_BUNDLER_URL", "https://base-sepolia.g.alchemy.com/v2/")
+    USE_GASLESS_TX: bool = os.getenv("USE_GASLESS_TX", "True").lower() == "true"
+    ERC4337_ENTRY_POINT: str = os.getenv("ERC4337_ENTRY_POINT", "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789")
+    ERC4337_ACCOUNT_SALT: int = int(os.getenv("ERC4337_ACCOUNT_SALT", "0"))
+    ERC4337_ACCOUNT_PREFIX: str = os.getenv("ERC4337_ACCOUNT_PREFIX", "RCIA_SMART_ACCOUNT")
+    
     # Redis & Celery
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", REDIS_URL)

@@ -22,7 +22,8 @@ async def get_status(request: Request):
             "id": f"#{settings.AGENT_ID}",
             "owner": settings.AGENT_OWNER_ADDRESS,
             "network": settings.BLOCKCHAIN_NETWORK_NAME,
-            "identity_registry": settings.ERC8004_IDENTITY_REGISTRY
+            "identity_registry": settings.ERC8004_IDENTITY_REGISTRY,
+            "smart_account": request.app.state.trust_service.erc4337.get_smart_account_address()
         },
         "mode": sm.current_mode,
         "last_transition": sm.last_transition_time.isoformat() if sm.last_transition_time else None,

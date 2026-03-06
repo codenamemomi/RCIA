@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP(
     "RCIA-Agent",
     instructions="I am the Research & Compliance Infrastructure for Agents (RCIA). I provide tools to check agent status, trade history, and trigger market evaluations.",
-    mount_path="/api/v1/mcp",
-    message_path="/messages",
+    mount_path="",
+    message_path="/messages/",
     transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=settings.MCP_ENABLE_SECURITY,
         allowed_hosts=[f"{h}:*" for h in settings.MCP_ALLOWED_HOSTS] + settings.MCP_ALLOWED_HOSTS,
