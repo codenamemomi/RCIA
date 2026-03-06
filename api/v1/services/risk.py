@@ -41,7 +41,8 @@ class RiskService:
         symbol: str, 
         action: str, 
         amount: float, 
-        market_metrics: Dict[str, Any]
+        market_metrics: Dict[str, Any],
+        total_capital: float = 10000.0
     ) -> Tuple[bool, str]:
         """
         Validates a trade intent against risk limits:
@@ -65,9 +66,10 @@ class RiskService:
             return False, reason
 
         # 3. Check Exposure
-        # Simplified: check if adding this amount exceeds max exposure
-        if (self.current_exposure + amount) > settings.RISK_MAX_EXPOSURE:
-            reason = f"Trade would exceed current max conservative exposure ({settings.RISK_MAX_EXPOSURE:.2%})"
+        # Max exposure is based on a percentage of total capital
+        max_allowed_exposure = total_capital * settings.RISK_MAX_EXPOSURE
+        if (self.current_exposure + amount) > max_allowed_exposure:
+            reason = f"Trade would exceed max allowed exposure ({max_allowed_exposure:.2f} of {total_capital:.2f})"
             logger.warning(f"Risk Check Failed: {reason}")
             return False, reason
 

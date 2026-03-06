@@ -16,11 +16,15 @@ RCIA is an autonomous, trust-minimized financial agent designed for mode-aware c
 - **Robust Market Data**:
   - **Global Aggregator (CryptoCompare)**: Bypasses regional geo-blocking of major exchanges for reliable real-time data.
   - **Multi-Layer Fallback**: Seamlessly switches between Aggregator -> Exchange (CCXT) -> Mock Data for maximum demo uptime.
-- **ERC-8004 Trust Integration**:
-  - **On-chain Identity**: Verifiable agent registration on the ERC-8004 Identity Registry.
-  - **Validation Artifacts**: Every key decision (trade signals, mode transitions) generates a cryptographically signed EIP-712 artifact.
-  - **Reputation Feedback Loop**: Closed-loop reporting of outcomes to maintain an on-chain reputation score.
-  - **Simulated Trust Mode**: Optional `SIMULATE_ON_CHAIN` toggle to bypass gas requirements for easier hackathon testing.
+- **Alchemy Gasless Transactions (ERC-4337)**:
+  - **Account Abstraction**: The agent uses a deterministic Smart Account for all on-chain operations.
+  - **Sponsored Execution**: Seamlessly utilizes **Alchemy Gas Manager** to sponsor transaction fees, ensuring the agent is always liquid and ready to act.
+- **Model Context Protocol (MCP)**:
+  - **Direct AI Connectivity**: Exposes a real-time SSE endpoint for AI-to-AI interaction, providing tools for market evaluation, reputation checks, and status monitoring.
+- **Hackathon Capital Vault & Risk Router**:
+  - **Step 2 (Capital)**: Integrated on-chain funding via the Hackathon Capital Vault.
+  - **Step 3 (Risk Router)**: Every trade intent is cryptographically signed and routed through the authorized Risk Router contract for enforced safety limits.
+- **Simulated Trust Mode**: Toggle `SIMULATE_ON_CHAIN` for testing or switch to `False` for real sponsored on-chain actions via Alchemy.
 
 ## 📂 Project Structure
 

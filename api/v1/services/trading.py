@@ -45,8 +45,11 @@ class TradingService:
             return await self._get_momentum_signal(symbol, metrics)
             
         elif current_mode == AgentMode.YIELD:
-            # Mock amount: $10k for yield allocation
-            allocation = await self.yield_service.get_allocation_strategy(10000.0)
+            # Get real sandbox balance from Vault
+            sandbox_balance = await self.trust_service.get_sandbox_balance()
+            
+            # Allocation is now based on real claimed capital
+            allocation = await self.yield_service.get_allocation_strategy(sandbox_balance)
             
             # Phase 5: Execute yield allocation on-chain
             execution_result = await self.yield_service.execute_yield_allocation(allocation)
@@ -100,11 +103,17 @@ class TradingService:
                 signal = "SELL"
 
             if signal != "HOLD":
+                # Get real sandbox balance from Vault
+                sandbox_balance = await self.trust_service.get_sandbox_balance()
+                
                 # Phase 13: Volatility-based position scaling for high Sharpe
-                base_amount = settings.RISK_MAX_EXPOSURE * 0.1
+                # Use sandbox balance as the basis for max exposure
+                base_amount = sandbox_balance * 0.1 # Trade 10% of total capital per position
                 amount_to_trade = self.risk_service.calculate_position_size(base_amount, metrics["volatility"])
                 
-                is_safe, reason = self.risk_service.validate_trade(symbol, signal, amount_to_trade, metrics)
+                is_safe, reason = self.risk_service.validate_trade(
+                    symbol, signal, amount_to_trade, metrics, total_capital=sandbox_balance
+                )
                 
                 if not is_safe:
                     # Emit Risk Rejection Artifact for ERC-8004
@@ -162,7 +171,8 @@ class TradingService:
             
             # Phase 13: Sideways Market Proactive Yield Parking
             logger.info("Sideways market detected in GROWTH mode; parking 20% in yield pools")
-            allocation = await self.yield_service.get_allocation_strategy(2000.0) # Park $2k
+            sandbox_balance = await self.trust_service.get_sandbox_balance()
+            allocation = await self.yield_service.get_allocation_strategy(sandbox_balance * 0.2) # Park 20%
             execution_result = await self.yield_service.execute_yield_allocation(allocation)
             
             return {
