@@ -64,6 +64,9 @@ if settings.BACKEND_CORS_ORIGINS:
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
 
+# Mount MCP Server
+app.mount("/api/v1/mcp", mcp.mcp.sse_app())
+
 @app.get("/")
 async def root():
     return {
