@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000", "http://localhost:5173"]
     
     # MCP Security
-    MCP_ENABLE_SECURITY: bool = os.getenv("MCP_ENABLE_SECURITY", "False").lower() == "true"
-    MCP_ALLOWED_HOSTS: list = ["localhost", "127.0.0.1", "https://api.konasalti.com/rcia"]
+    MCP_ENABLE_SECURITY: bool = os.getenv("MCP_ENABLE_SECURITY", "True").lower() == "true"
+    MCP_ALLOWED_HOSTS: list = ["localhost", "127.0.0.1", "api.konasalti.com"]
     
     # Redis & Celery
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
